@@ -50,7 +50,7 @@ person = new Person("Hans Peter", "Am Kiez 49, 123 Berlin", employer);
 
 console.log(person.print());
 
-/*
+
 withLayers([AddressLayer], function() {
     console.log(person.print());  
 });
@@ -61,4 +61,4 @@ withLayers([EmploymentLayer], function() {
 
 withLayers([EmploymentLayer, AddressLayer], function() { 
     console.log(person.print()); 
-});*/
+});
