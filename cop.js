@@ -52,7 +52,7 @@ if (!window.module) {
 
             // modified from prototype.js
 
-            var args = $A(arguments),
+            var args = Array.from(arguments),
                 className = args.shift(),
                 targetScope = Global,
                 shortName = null;
@@ -541,7 +541,7 @@ Object.extend(cop, {
             try {
                 composition.partialMethodIndex  = index - 1;
                 if (!Config.ignoredepricatedProceed && partialMethod.toString().match(/^[\t ]*function ?\(\$?proceed/)) {
-                    var args = $A(arguments);
+                    var args = Array.from(arguments);
                     args.unshift(cop.proceed);
                     var msg = "proceed in arguments list in " + composition.functionName;
                     if (Config.throwErrorOnDepricated) throw new Error("DEPRICATED ERROR: " + msg);
@@ -568,7 +568,7 @@ var markNamespaceEntryAsDepricated = function(newNamespace, newName, oldNamespac
     oldNamespace[oldName] = newNamespace[newName].wrap(function(proceed) {
         if (Config.throwErrorOnDepricated) throw new Error("DEPRICATED ERROR: " + oldName + " is depricated");
         if (Config.logDepricated) console.log("DEPRICATED WARNING: " + oldName + " is depricated");
-        var args = $A(arguments);
+        var args = Array.from(arguments);
         args.shift();
         return proceed.apply(this, args);
     });
@@ -840,7 +840,7 @@ Object.subclass("cop.PartialLayerComposition", {
  */
 Object.extend(Function.prototype, {
     subclass: Object.subclass.wrap(function(proceed) {
-        var args = $A(arguments);
+        var args = Array.from(arguments);
         args.shift();
         var layeredMethods = [];
 
