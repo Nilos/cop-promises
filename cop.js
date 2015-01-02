@@ -21,9 +21,10 @@
  * THE SOFTWARE.
  */
 
+require("prototype");
 
 // Non-Lively Compatibility
-if (!window.module) {
+if (typeof window === "undefined" || !window.module) {
     module = function() {
         return {
             requires: function() { return this; },
@@ -34,13 +35,133 @@ if (!window.module) {
     };
     Config = {};
     cop = {};
-    Global = window;
+    Global = global;
 
-
+    Object.extend(Class, {
+        namespaceFor: function (name) {
+            return Global;
+        },
+        unqualifiedNameFor: function (name) {
+            return name;
+        },
+        anonymousCounter: 0
+    });
 
     Object.extend(Function.prototype, {
 
         defaultCategoryName: 'default category',
+
+        addMethods: function(/*...*/) {
+            var args = arguments,
+                category = this.defaultCategoryName;
+            for (var i = 0; i < args.length; i++) {
+                if (Object.isString(args[i])) {
+                    category = args[i];
+                } else {
+                    this.addCategorizedMethods(category, args[i] instanceof Function ? (args[i])() : args[i]);
+                }
+            }
+        },
+
+        addCategorizedMethods: function(categoryName, source) {
+            // first parameter is a category name
+            // copy all the methods and properties from {source} into the
+            // prototype property of the receiver, which is intended to be
+            // a class constructor.     Method arguments named '$super' are treated
+            // specially, see Prototype.js documentation for "Class.create()" for details.
+            // derived from Class.Methods.addMethods() in prototype.js
+
+            // prepare the categories
+            if (!this.categories) this.categories = {};
+            if (!this.categories[categoryName]) this.categories[categoryName] = [];
+            var currentCategoryNames = this.categories[categoryName];
+
+            if (!source)
+                throw dbgOn(new Error('no source in addCategorizedMethods!'));
+
+            var ancestor = this.superclass && this.superclass.prototype;
+
+            var className = this.type || "Anonymous";
+
+            for (var property in source) {
+
+                if (property == 'constructor') continue;
+
+                var getter = source.__lookupGetter__(property);
+                if (getter) this.prototype.__defineGetter__(property, getter);
+                var setter = source.__lookupSetter__(property);
+                if (setter) this.prototype.__defineSetter__(property, setter);
+                if (getter || setter) continue;
+
+                currentCategoryNames.push(property);
+
+                var value = source[property];
+                // weirdly, RegExps are functions in Safari, so testing for
+                // Object.isFunction on regexp field values will return true.
+                // But they're not full-blown functions and don't
+                // inherit argumentNames from Function.prototype
+
+                var hasSuperCall = ancestor && Object.isFunction(value) &&
+                    value.argumentNames && value.argumentNames().first() == "$super";
+                if (hasSuperCall) {
+                    // wrapped in a function to save the value of 'method' for advice
+                    (function() {
+                        var method = value,
+                            advice = (function(m) {
+                              var cs = function callSuper() {
+                                var method = ancestor[m];
+                                if (!method) {
+                                    throw new Error(Strings.format('Trying to call super of' +
+                                        '%s>>%s but super method non existing in %s',
+                                        className, m, ancestor.constructor.type));
+                                }
+                                return method.apply(this, arguments);
+                            };
+                            cs.varMapping = {ancestor: ancestor, m: m};
+                            cs.isSuperCall = true;
+                            return cs;
+                        })(property);
+
+                        advice.methodName = "$super:" + (this.superclass ? this.superclass.type + ">>" : "") + property;
+
+                        value = Object.extend(advice.wrap(method), {
+                            valueOf:  function() { return method },
+                            toString: function() { return method.toString() },
+                            originalFunction: method,
+                            methodName: advice.methodName,
+                            isSuperWrapper: true
+                        });
+                        // for lively.Closures
+                        method.varMapping = {$super: advice};
+                    })();
+                }
+
+                this.prototype[property] = value;
+
+                if (property === "formals") { // rk FIXME remove this cruft
+                    // special property (used to be pins, but now called formals to disambiguate old and new style
+                    Class.addPins(this, value);
+                } else if (Object.isFunction(value)) {
+                    // remember name for profiling in WebKit
+                    value.displayName = className + "$" + property;
+
+                    // remember where it was defined
+                    if (Global.lively && lively.lang && lively.lang.Namespace)
+                        value.sourceModule = lively.lang.Namespace.current();
+
+                    for (; value; value = value.originalFunction) {
+                        if (value.methodName) {
+                            //console.log("class " + this.prototype.constructor.type
+                            // + " borrowed " + value.qualifiedMethodName());
+                        }
+                        value.declaredClass = this.prototype.constructor.type;
+                        value.methodName = property;
+                    }
+                }
+            } // end of for (var property in source)
+
+            return this;
+        },
 
         subclass: function(/*... */) {
             // Main method of the LK class system.
@@ -70,7 +191,7 @@ if (!window.module) {
                 // preserve the class to allow using the subclass construct in interactive development
                 klass = targetScope[shortName];
             } else {
-                klass = Class.newInitializer(shortName);
+                klass = function () {};
                 klass.superclass = this;
                 var protoclass = function() { }; // that's the constructor of the new prototype object
                 protoclass.prototype = this.prototype;
