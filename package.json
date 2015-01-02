@@ -1,0 +1,15 @@
+{
+  "name": "cop-promises",
+  "version": "1.0.0",
+  "description": "Context-Oriented Promises for easy context oriented programming when using callbacks.",
+  "main": "main.js",
+  "dependencies": {
+    "prototype": "^0.0.5"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nils Kenneweg",
+  "license": "MIT"
+}
