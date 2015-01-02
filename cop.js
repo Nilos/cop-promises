@@ -223,6 +223,18 @@ if (typeof window === "undefined" || !window.module) {
         },
     });
 
+    Object.extend(Array.prototype, {
+        without: function() {
+            var values = Array.from(arguments);
+            return this.select(function(value) {
+                return !values.include(value);
+            });
+        },
+        withoutAll: function(otherArr) {
+            return this.without.apply(this, otherArr);
+        }
+    });
+
 }
 
 /*
