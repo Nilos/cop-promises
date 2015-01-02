@@ -34,15 +34,22 @@ if (typeof window === "undefined" || !window.module) {
         };
     };
     Config = {};
-    cop = {};
+    global.cop = {};
     Global = global;
 
     Object.extend(Class, {
         namespaceFor: function (name) {
-            return Global;
+            var result = Global;
+
+            name.split(".").slice(0, -1).forEach(function (subName) {
+                result[subName] = result[subName] || {};
+                result = result[subName];
+            });
+
+            return result;
         },
         unqualifiedNameFor: function (name) {
-            return name;
+            return name.split(".").last();
         },
         anonymousCounter: 0
     });
@@ -191,7 +198,7 @@ if (typeof window === "undefined" || !window.module) {
                 // preserve the class to allow using the subclass construct in interactive development
                 klass = targetScope[shortName];
             } else {
-                klass = function () {};
+                klass = function () { this.initialize.apply(this, arguments); };
                 klass.superclass = this;
                 var protoclass = function() { }; // that's the constructor of the new prototype object
                 protoclass.prototype = this.prototype;
