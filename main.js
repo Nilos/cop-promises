@@ -47,7 +47,15 @@ copPromise.prototype._restoreContextCall = function(func) {
 	};
 };
 
-function overRide(ownClass, functionName) {
+copPromise.prototype.withLayers = function (layers) {
+	this._layers.push({withLayers: layers});
+};
+
+copPromise.prototype.withoutLayers = function (layers) {
+	this._layers.push({withoutLayers: layers});
+};
+
+function prototypeOverRide(ownClass, functionName) {
 	ownClass.prototype[functionName] = function () {
 		var oldLayerStack = cop.LayerStack.clone();
 		cop.LayerStack = this._layers;
@@ -64,9 +72,29 @@ function overRide(ownClass, functionName) {
 	};
 }
 
-overRide(copPromise, "then");
-overRide(copPromise, "catch");
-overRide(copPromise, "finally");
+function overRide(ownClass, functionName) {
+	ownClass[functionName] = function () {
+		var result = Bluebird[functionName].apply(Bluebird, arguments);
+
+		if (result instanceof Bluebird) {
+			result = new copPromise(result);
+		}
+
+		return result;
+	};	
+}
+
+var prototypeOverRides = ["then", "catch", "error", "finally", "bind", "isFulfilled", "isRejected", "isPending", "value", "reason", "reflect", "delay", "timeout"];
+
+prototypeOverRides.forEach(function (name) {
+	prototypeOverRide(copPromise, name);
+});
+
+overRides = ["resolve", "reject", "delay"];
+
+overRides.forEach(function (name) {
+	overRide(copPromise, name);
+});
 
 cop.create('AddressLayer');
 cop.create('EmploymentLayer');
@@ -115,9 +143,7 @@ employer = new Employer("Doener AG", "An der Ecke, 124 Berlin");
 person = new Person("Hans Peter", "Am Kiez 49, 123 Berlin", employer);
 
 withLayers([AddressLayer], function () {
-	new copPromise(function (resolve, reject) {
-		setTimeout(resolve, 500);
-	}).then(function () {
+	copPromise.delay(500).then(function () {
 		console.log(person.print());
 	}).then(function () {
 		return withLayers([EmploymentLayer], function () {
@@ -129,17 +155,10 @@ withLayers([AddressLayer], function () {
 	});
 });
 
-/*
-console.log(person.print());
-
-withLayers([AddressLayer], function() {
-    console.log(person.print());  
+withLayers([AddressLayer, EmploymentLayer], function () {
+	new copPromise(function (resolve, reject) {
+		setTimeout(resolve, 500);
+	}).then(function () {
+		console.log("other:" + person.print());
+	});
 });
-
-withLayers([EmploymentLayer], function() {
-    console.log(person.print()); 
-});
-
-withLayers([EmploymentLayer, AddressLayer], function() { 
-    console.log(person.print()); 
-});*/
