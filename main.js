@@ -2,6 +2,72 @@ require("prototype");
 
 require("./cop");
 
+var Bluebird = require("bluebird");
+
+function construct(constructor, args) {
+    function F() {
+        return constructor.apply(this, args);
+    }
+    F.prototype = constructor.prototype;
+    return new F();
+}
+
+function copPromise(originalPromise) {
+	this._layers = cop.LayerStack.clone();
+
+	if (originalPromise instanceof Bluebird) {
+		this._original = originalPromise;
+	} else {
+		var args = this._correctFunctionArgs(arguments);
+		this._original = construct(Bluebird, arguments);
+	}
+}
+
+copPromise.prototype._correctFunctionArgs = function (args) {
+	return Array.prototype.slice.call(args).map(function (argument) {
+		if (typeof argument === "function") {
+			return this._restoreContextCall(argument);
+		}
+
+		return argument;
+	}, this);
+};
+
+copPromise.prototype._restoreContextCall = function(func) {
+	var that = this;
+	return function () {
+		var oldLayerStack = cop.LayerStack.clone();
+		cop.LayerStack = that._layers;
+
+		var result = func.apply(that, arguments);
+
+		cop.LayerStack = oldLayerStack;
+
+		return result;
+	};
+};
+
+function overRide(ownClass, functionName) {
+	ownClass.prototype[functionName] = function () {
+		var oldLayerStack = cop.LayerStack.clone();
+		cop.LayerStack = this._layers;
+
+		var resultArgs = this._correctFunctionArgs(arguments);
+		var result = this._original[functionName].apply(this._original, resultArgs);
+
+		if (result instanceof Bluebird) {
+			result = new copPromise(result);
+		}
+
+		cop.LayerStack = oldLayerStack;
+		return result;
+	};
+}
+
+overRide(copPromise, "then");
+overRide(copPromise, "catch");
+overRide(copPromise, "finally");
+
 cop.create('AddressLayer');
 cop.create('EmploymentLayer');
 
@@ -48,8 +114,23 @@ AddressLayer.refineClass(Employer, {
 employer = new Employer("Doener AG", "An der Ecke, 124 Berlin");
 person = new Person("Hans Peter", "Am Kiez 49, 123 Berlin", employer);
 
-console.log(person.print());
+withLayers([AddressLayer], function () {
+	new copPromise(function (resolve, reject) {
+		setTimeout(resolve, 500);
+	}).then(function () {
+		console.log(person.print());
+	}).then(function () {
+		return withLayers([EmploymentLayer], function () {
+			return person.print();
+		});
+	}).then(function (personLong) {
+		console.log(personLong);
+		console.log(person.print());
+	});
+});
 
+/*
+console.log(person.print());
 
 withLayers([AddressLayer], function() {
     console.log(person.print());  
@@ -61,4 +142,4 @@ withLayers([EmploymentLayer], function() {
 
 withLayers([EmploymentLayer, AddressLayer], function() { 
     console.log(person.print()); 
-});
+});*/

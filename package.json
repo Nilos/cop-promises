@@ -4,9 +4,12 @@
   "description": "Context-Oriented Promises for easy context oriented programming when using callbacks.",
   "main": "main.js",
   "dependencies": {
+    "bluebird": "^2.6.0",
     "prototype": "^0.0.5"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "mocha": "^2.1.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
