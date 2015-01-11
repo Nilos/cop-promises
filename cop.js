@@ -37,6 +37,10 @@ if (typeof window === "undefined" || !window.module) {
     global.cop = {};
     Global = global;
 
+    Functions = {
+        Null: function () {}
+    };
+
     Object.extend(Class, {
         namespaceFor: function (name) {
             var result = Global;

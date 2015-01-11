@@ -36,12 +36,20 @@ copPromise.prototype._correctFunctionArgs = function (args) {
 copPromise.prototype._restoreContextCall = function(func) {
 	var that = this;
 	return function () {
-		var oldLayerStack = cop.LayerStack.clone();
+		var oldLayerStack = cop.LayerStack.clone(), error, result;
 		cop.LayerStack = that._layers;
 
-		var result = func.apply(that, arguments);
+		try {
+			result = func.apply(that, arguments);
+		} catch (e) {
+			error = e;
+		} finally {
+			cop.LayerStack = oldLayerStack;
+		}
 
-		cop.LayerStack = oldLayerStack;
+		if (error) {
+			throw error;
+		}
 
 		return result;
 	};
@@ -81,7 +89,7 @@ function overRide(ownClass, functionName) {
 		}
 
 		return result;
-	};	
+	};
 }
 
 var prototypeOverRides = ["then", "catch", "error", "finally", "bind", "isFulfilled", "isRejected", "isPending", "value", "reason", "reflect", "delay", "timeout"];
@@ -90,11 +98,26 @@ prototypeOverRides.forEach(function (name) {
 	prototypeOverRide(copPromise, name);
 });
 
-overRides = ["resolve", "reject", "delay"];
+overRides = ["resolve", "reject", "delay", "all"];
 
 overRides.forEach(function (name) {
 	overRide(copPromise, name);
 });
+
+copPromise.promisify = function () {
+	var result = Bluebird.promisify.apply(Bluebird, arguments);
+
+	return function () {
+		var p = result.apply(this, arguments);
+
+		if (p instanceof Bluebird) {
+			p = new copPromise(p);
+		}
+
+		return p;
+	};
+};
+
 
 cop.create('AddressLayer');
 cop.create('EmploymentLayer');
@@ -162,3 +185,5 @@ withLayers([AddressLayer, EmploymentLayer], function () {
 		console.log("other:" + person.print());
 	});
 });
+
+module.exports = copPromise;
