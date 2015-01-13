@@ -2,6 +2,7 @@ var http = require('http');
 var redis = require("redis");
 
 var copPromise = require("./main");
+var Cookies = require("cookies");
 
 var client = redis.createClient();
 
@@ -58,10 +59,10 @@ Object.subclass('MessageManager', {
 		return "";
 	},
 	LogedinLayer$actions: function () {
-		return cop.proceed() + "<br><a href='?'>Logout</a><br><br><form><input type='text' name='message'><input type='submit'></form>";
+		return cop.proceed() + "<br><a href='?logout=true'>Logout</a><br><br><form><input type='text' name='content'><input type='hidden' value='message' name='action'><input type='submit'></form>";
 	},
 	AdminLayer$actions: function () {
-		return cop.proceed() + "<br><a href='?user=admin&action=deleteAll'>Delete all messages</a>";
+		return cop.proceed() + "<br><a href='?action=deleteAll'>Delete all messages</a>";
 	},
 	getAll: function () {
 		return zrange("messages", 0, 100).then(function (messages) {
@@ -94,7 +95,7 @@ Object.subclass('Message', {
 	actions: function () { return ""; },
 	LogedinLayer$actions: function () { return cop.proceed() + ""; },
 	AdminLayer$actions: function () {
-		return cop.proceed() + "<a href='?user=admin&action=delete&mid=" + this.id + "'>Delete</a>";
+		return cop.proceed() + "<a href='?action=delete&mid=" + this.id + "'>Delete</a>";
 	},
 	AdminLayer$remove: function () {
 		return zrem("messages", this.id);
@@ -121,25 +122,32 @@ var srv = http.createServer(function (req, res) {
 	var query = url_parts.query;
 
 	var requestPromise = copPromise.resolve();
+	var cookies = new Cookies(req, res);
 
-	if (query.user === "admin") {
+	var user;
+	if (!query.logout) {
+		user = query.user || cookies.get("user");
+	}
+	cookies.set("user", user);
+
+	if (user === "admin") {
 		requestPromise.withLayers([LogedinLayer, AdminLayer]);
-	} else if (query.user) {
+	} else if (user) {
 		requestPromise.withLayers([LogedinLayer]);
 	}
 
 	requestPromise.then(function () {
 		if (query.action === "deleteAll") {
 			return myMessageManager.deleteAll().then(function () {
-				return "All messages deleted";
+				return "All messages deleted<br><a href='?'>Home</a>";
 			});
 		} else if (query.action === "message") {
 			return myMessageManager.create(query.content).then(function () {
-				return "Message created succesfully";
+				return "Message created succesfully<br><a href='?'>Home</a>";
 			});
 		} else if (query.action === "delete") {
 			return new Message(query.mid).remove().then(function () {
-				return "Message deleted succesfully";
+				return "Message deleted succesfully<br><a href='?'>Home</a>";
 			});
 		} else {
 			return myMessageManager.getAll().then(function (messages) {

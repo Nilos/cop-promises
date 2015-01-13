@@ -5,6 +5,7 @@
   "main": "main.js",
   "dependencies": {
     "bluebird": "^2.6.0",
+    "cookies": "^0.5.0",
     "prototype": "^0.0.5",
     "redis": "^0.12.1"
   },
