@@ -47,13 +47,20 @@ Object.subclass('MessageManager', {
 		});
 	},
 	AdminLayer$deleteAll: function () {
-		var m = client.multi();
-		m.del("messages");
-		m.del("messages:count");
+		return get("messages:count").then(function (count) {
+			var toDelete = ["messages", "messages:count"];
 
-		var exec = copPromise.promisify(m.exec).bind(m);
+			for (i = 0; i < count+10; i += 1) {
+				toDelete.push("messages:" + i);
+			}
 
-		return exec();
+			var m = client.multi();
+			m.del.apply(m, toDelete);
+
+			var exec = copPromise.promisify(m.exec).bind(m);
+
+			return exec();
+		});
 	},
 	actions: function () {
 		return "";
