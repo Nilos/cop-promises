@@ -24,7 +24,7 @@ var get = copPromise.promisify(client.get).bind(client);
 Object.subclass('MessageManager', {
 	initialize: function () {},
 	LogedinLayer$create: function (text) {
-		return incr("messages:count").then(function (id) {
+		return incr("messages:count").delay(5000).then(function (id) {
 			var m = client.multi();
 
 			m.zadd("messages", new Date().getTime(), id);
@@ -42,7 +42,7 @@ Object.subclass('MessageManager', {
 		});
 	},
 	AdminLayer$create: function (text) {
-		return cop.proceed(text).then(function (message) {
+		return cop.proceed(text).delay(5000).then(function (message) {
 			return message.makeAdminMessage();
 		});
 	},
